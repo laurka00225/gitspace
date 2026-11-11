@@ -47,9 +47,8 @@ photo = photo.filter(ImageFilter.UnsharpMask(radius=3.0, percent=120, threshold=
 photo = photo.filter(ImageFilter.UnsharpMask(radius=1.0, percent=60, threshold=2))
 
 # ---------- Toile ----------
-TEXT_H = 800 * S
-FADE = 150 * S
-H = ph_h + TEXT_H - FADE
+FADE = 200 * S
+H = ph_h + 315 * S
 
 canvas = Image.new("RGB", (W, H), IVOIRE)
 gd = ImageDraw.Draw(canvas)
@@ -109,33 +108,28 @@ def gold_text(img, xy, text, fnt, anchor="mm", halo=True):
     img.paste(g, (0, 0), layer)
 
 
-# ---------- Textes ----------
-y0 = ph_h - FADE + 125 * S
-gold_text(canvas, (W // 2, y0 + 30 * S), "Joyeux Anniversaire", SCRIPT(120))
-gold_text(canvas, (W // 2, y0 + 118 * S), "ma fille", SCRIPT(70))
+# ---------- Textes (compacts, pour laisser la place à la photo) ----------
+y0 = ph_h - FADE + 105 * S
+gold_text(canvas, (W // 2, y0), "Joyeux Anniversaire", SCRIPT(105))
+gold_text(canvas, (W // 2, y0 + 72 * S), "ma fille", SCRIPT(60))
 
 d = ImageDraw.Draw(canvas)
-y = y0 + 190 * S
-d.line([W // 2 - 170 * S, y, W // 2 - 24 * S, y], fill=OR, width=2 * S)
-d.line([W // 2 + 24 * S, y, W // 2 + 170 * S, y], fill=OR, width=2 * S)
-star(d, W // 2, y, 14 * S, OR)
-
-y += 58 * S
-f1 = SERIF_IT(35, 500)
+y = y0 + 140 * S
+f1 = SERIF_IT(31, 500)
 for txt in ["Garde ton humilité, ton amour du prochain", "et surtout ta crainte de Dieu."]:
     d.text((W // 2, y), txt, font=f1, fill=VERT_FONCE, anchor="mm")
-    y += 52 * S
+    y += 46 * S
 
-y += 22 * S
-f2 = SERIF_IT(37, 650)
-for txt in ["Que l’huile de la faveur divine", "ne cesse jamais de couler", "de ta tête à tes pieds."]:
+y += 12 * S
+f2 = SERIF_IT(32, 650)
+for txt in ["Que l’huile de la faveur divine ne cesse jamais", "de couler de ta tête à tes pieds."]:
     gold_text(canvas, (W // 2, y), txt, f2, halo=False)
-    y += 54 * S
+    y += 46 * S
 
-gold_text(canvas, (W // 2, y + 26 * S), "Avec tout mon amour", SCRIPT(48), halo=False)
+gold_text(canvas, (W // 2, y + 10 * S), "Avec tout mon amour", SCRIPT(44), halo=False)
 
 d = ImageDraw.Draw(canvas)
-for (x, yy, r) in [(110, -330, 20), (975, -300, 16), (90, -80, 14), (995, -110, 18)]:
+for (x, yy, r) in [(90, -230, 16), (990, -215, 14), (95, -70, 12), (985, -80, 16)]:
     star(d, x * S, H + yy * S, r * S, OR)
 
 # ---------- Fin liseré sur tout le pourtour ----------
