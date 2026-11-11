@@ -1,7 +1,11 @@
 """Carte d'anniversaire d'une seule pièce, claire : la photo (netteté seulement)
 se fond dans un fond ivoire où est écrit le message.
 
-Usage : python3 creer_carte.py <photo> <dossier_polices> <sortie.png>
+Usage : python3 creer_carte.py <photo> <dossier_polices> <sortie.png> [modele_EDSR_x4.pb]
+
+Netteté : si le modèle EDSR est fourni, la photo est agrandie x4 par
+super-résolution (OpenCV dnn_superres), puis légèrement renforcée.
+Aucune autre retouche (ni recadrage, ni couleurs, ni lumière).
 """
 import math
 import random
@@ -10,6 +14,7 @@ import sys
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 photo_path, fonts_dir, out_path = sys.argv[1:4]
+model_path = sys.argv[4] if len(sys.argv) > 4 else None
 
 S = 2
 W = 1080 * S
@@ -39,16 +44,28 @@ SERIF_IT = lambda s, w=500: font("PlayfairDisplay-Italic%5Bwght%5D.ttf", s, w)
 photo = Image.open(photo_path).convert("RGB")
 ph_w = W
 ph_h = round(photo.height * ph_w / photo.width)
-# agrandissement progressif, sans recadrage ni modification des couleurs
-mid = photo.resize((photo.width * 2, photo.height * 2), Image.LANCZOS)
-mid = mid.filter(ImageFilter.UnsharpMask(radius=1.2, percent=110, threshold=2))
-photo = mid.resize((ph_w, ph_h), Image.LANCZOS)
-photo = photo.filter(ImageFilter.UnsharpMask(radius=3.0, percent=120, threshold=3))
-photo = photo.filter(ImageFilter.UnsharpMask(radius=1.0, percent=60, threshold=2))
+if model_path:
+    import cv2
+    import numpy as np
+
+    sr = cv2.dnn_superres.DnnSuperResImpl_create()
+    sr.readModel(model_path)
+    sr.setModel("edsr", 4)
+    up = sr.upsample(cv2.cvtColor(np.array(photo), cv2.COLOR_RGB2BGR))
+    photo = Image.fromarray(cv2.cvtColor(up, cv2.COLOR_BGR2RGB))
+    photo = photo.resize((ph_w, ph_h), Image.LANCZOS)
+    photo = photo.filter(ImageFilter.UnsharpMask(radius=2.0, percent=70, threshold=3))
+    photo = photo.filter(ImageFilter.UnsharpMask(radius=0.8, percent=50, threshold=2))
+else:
+    mid = photo.resize((photo.width * 2, photo.height * 2), Image.LANCZOS)
+    mid = mid.filter(ImageFilter.UnsharpMask(radius=1.2, percent=110, threshold=2))
+    photo = mid.resize((ph_w, ph_h), Image.LANCZOS)
+    photo = photo.filter(ImageFilter.UnsharpMask(radius=3.0, percent=120, threshold=3))
+    photo = photo.filter(ImageFilter.UnsharpMask(radius=1.0, percent=60, threshold=2))
 
 # ---------- Toile ----------
 FADE = 200 * S
-H = ph_h + 315 * S
+H = ph_h + 330 * S
 
 canvas = Image.new("RGB", (W, H), IVOIRE)
 gd = ImageDraw.Draw(canvas)
@@ -108,25 +125,53 @@ def gold_text(img, xy, text, fnt, anchor="mm", halo=True):
     img.paste(g, (0, 0), layer)
 
 
-# ---------- Textes (compacts, pour laisser la place à la photo) ----------
-y0 = ph_h - FADE + 105 * S
-gold_text(canvas, (W // 2, y0), "Joyeux Anniversaire", SCRIPT(105))
-gold_text(canvas, (W // 2, y0 + 72 * S), "ma fille", SCRIPT(60))
+# ---------- Textes : couleurs foncées + halo ivoire pour bien ressortir ----------
+VERT_TEXTE = (6, 62, 38)
+OR_TEXTE = (122, 82, 8)
 
-d = ImageDraw.Draw(canvas)
-y = y0 + 140 * S
-f1 = SERIF_IT(31, 500)
+
+def strong_text(img, xy, text, fnt, fill, stroke=None, halo=0):
+    if halo:
+        layer = Image.new("L", img.size, 0)
+        ImageDraw.Draw(layer).text(xy, text, font=fnt, fill=255, anchor="mm",
+                                   stroke_width=6 * S)
+        h = layer.filter(ImageFilter.GaussianBlur(halo * S))
+        img.paste(Image.new("RGB", img.size, (255, 252, 242)), (0, 0),
+                  h.point(lambda v: min(255, int(v * 2.6))))
+    ImageDraw.Draw(img).text(xy, text, font=fnt, fill=fill, anchor="mm",
+                             stroke_width=(stroke[0] if stroke else 0),
+                             stroke_fill=(stroke[1] if stroke else None))
+
+
+def fit(maker, size, text, max_w):
+    f = maker(size)
+    while f.getlength(text) > max_w and size > 10:
+        size -= 1
+        f = maker(size)
+    return f
+
+
+y0 = ph_h - FADE + 105 * S
+strong_text(canvas, (W // 2, y0), "Joyeux Anniversaire", SCRIPT(108), VERT_TEXTE,
+            stroke=(2 * S, OR), halo=16)
+strong_text(canvas, (W // 2, y0 + 74 * S), "ma fille", SCRIPT(64), VERT_TEXTE,
+            stroke=(1 * S, OR), halo=12)
+
+y = y0 + 142 * S
+f1 = SERIF_IT(31, 650)
 for txt in ["Garde ton humilité, ton amour du prochain", "et surtout ta crainte de Dieu."]:
-    d.text((W // 2, y), txt, font=f1, fill=VERT_FONCE, anchor="mm")
+    strong_text(canvas, (W // 2, y), txt, f1, VERT_TEXTE, halo=6)
     y += 46 * S
 
 y += 12 * S
-f2 = SERIF_IT(32, 650)
+f2 = SERIF_IT(32, 800)
 for txt in ["Que l’huile de la faveur divine ne cesse jamais", "de couler de ta tête à tes pieds."]:
-    gold_text(canvas, (W // 2, y), txt, f2, halo=False)
+    strong_text(canvas, (W // 2, y), txt, f2, OR_TEXTE, halo=6)
     y += 46 * S
 
-gold_text(canvas, (W // 2, y + 10 * S), "Avec tout mon amour", SCRIPT(44), halo=False)
+fin = "Dieu n’a pas encore épuisé ses merveilles pour toi"
+strong_text(canvas, (W // 2, y + 14 * S), fin, fit(SCRIPT, 54, fin, 900 * S), VERT_TEXTE,
+            stroke=(1 * S, OR), halo=6)
 
 d = ImageDraw.Draw(canvas)
 for (x, yy, r) in [(90, -230, 16), (990, -215, 14), (95, -70, 12), (985, -80, 16)]:
