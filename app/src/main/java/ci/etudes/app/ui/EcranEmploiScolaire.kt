@@ -115,7 +115,9 @@ fun EcranEmploiScolaire(etat: EtatApp, onTerminer: () -> Unit, modifier: Modifie
                     message = "${res.cours.size} cours trouvés. Vérifie-les et corrige si besoin avant d'enregistrer."
                 }
             } catch (e: Exception) {
-                message = "Lecture impossible : ${e.message ?: "erreur inconnue"}"
+                message = "Lecture impossible : ${e.message ?: "erreur inconnue"}. " +
+                    "À la première utilisation, le téléphone doit être connecté à Internet quelques instants " +
+                    "pour installer le module de lecture."
             } finally {
                 lecture = false
             }

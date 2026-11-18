@@ -61,7 +61,8 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-core")
 
-    // Reconnaissance de texte hors ligne (lecture de l'emploi du temps photographié ou en PDF)
-    implementation("com.google.mlkit:text-recognition:16.0.1")
+    // Reconnaissance de texte sur le téléphone (lecture de l'emploi du temps photographié ou en PDF).
+    // Version fournie par les services Google Play : le modèle n'alourdit pas l'APK.
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
     implementation("androidx.exifinterface:exifinterface:1.3.7")
 }
