@@ -26,6 +26,16 @@ Toutes les plages se modifient dans **Réglages** (repas, trajet, sieste...).
   fêtes musulmanes estimées et désactivables). Ajout des vacances scolaires.
 - Écran « Aujourd'hui » avec la séance en cours, cases « faite » et progression.
 - Vue semaine avec bilan du temps par matière ; on peut changer la matière d'une séance.
+- **Rappels et alarmes** : notification avant chaque séance (à l'heure, 5, 10, 15 ou 30 min avant),
+  sonnerie d'alarme au choix, rappel du coucher à 21h50 et rappel la veille des devoirs à 19h.
+  Les rappels survivent au redémarrage du téléphone.
+- **Exercices pratiques** en Français, Mathématiques, Physique-Chimie, SVT et Anglais, adaptés au
+  cycle (6e–5e, 4e–3e, 2nde–1ère, Tle) : séries de 10 QCM corrigés et expliqués ; en maths,
+  des calculs nouveaux sont générés à chaque série. Meilleur score par matière.
+- **Devoirs et contrôles** : la matière reçoit plus de séances la semaine qui précède l'épreuve.
+- **Minuteur de séance** avec alarme à la fin, même appli fermée.
+- **Progrès** : jours d'affilée, record, pourcentage de séances faites dans la semaine.
+- Interface Material 3, plein écran, mode sombre, couleurs du téléphone (Android 12+) en option.
 - Tout est enregistré sur le téléphone, sans connexion Internet.
 
 ## Installer l'application
