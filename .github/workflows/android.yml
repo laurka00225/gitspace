@@ -35,15 +35,16 @@ jobs:
           name: MesEtudes-apk
           path: MesEtudes.apk
 
-      - name: Publier la version téléchargeable (branche master)
-        if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+      - name: Publier la version téléchargeable
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/claude/project-thread-iufwdb')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: derniere-version
           name: Mes Études (dernière version)
           prerelease: false
           make_latest: true
+          target_commitish: ${{ github.sha }}
           files: MesEtudes.apk
           body: |
-            APK Android de l'application Mes Études, construit automatiquement depuis la branche master.
+            APK Android de l'application Mes Études, construit automatiquement à chaque mise à jour.
             Téléchargez MesEtudes.apk sur le téléphone, puis ouvrez-le pour l'installer.
