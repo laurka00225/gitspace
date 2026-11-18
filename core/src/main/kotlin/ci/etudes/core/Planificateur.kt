@@ -61,6 +61,20 @@ object Planificateur {
         return resultat
     }
 
+    /** Retire les créneaux qui chevauchent le précédent (plages qui se recouvrent). */
+    private fun sansChevauchement(creneaux: List<Pair<LocalTime, LocalTime>>): List<Pair<LocalTime, LocalTime>> {
+        val resultat = mutableListOf<Pair<LocalTime, LocalTime>>()
+        for (c in creneaux.sortedBy { it.first }) {
+            val dernier = resultat.lastOrNull()
+            if (dernier == null || !c.first.isBefore(dernier.second)) resultat += c
+        }
+        return resultat
+    }
+
+    /** Vrai si la plage recouvre une des autres plages. */
+    fun chevauche(plage: Plage, autres: List<Plage>): Boolean =
+        autres.any { plage.debut.isBefore(it.fin) && it.debut.isBefore(plage.fin) }
+
     fun semaine(lundi: LocalDate, reglages: Reglages, matieres: List<Matiere>): PlanSemaine {
         val actives = matieres.filter { it.active && it.priorite > 0 }
         val credits = DoubleArray(actives.size)
@@ -72,6 +86,7 @@ object Planificateur {
             val creneaux = reglages.plages(type)
                 .sortedBy { it.debut }
                 .flatMap { creneaux(it, reglages.dureeSeanceMin, reglages.pauseMin) }
+                .let(::sansChevauchement)
 
             val seances = mutableListOf<Seance>()
             val compteJour = IntArray(actives.size)

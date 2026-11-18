@@ -133,3 +133,48 @@ class PlanificateurTest {
         }
     }
 }
+
+class ChevauchementEtFeriesTest {
+
+    @Test
+    fun `des plages qui se recouvrent ne donnent pas de seances en double`() {
+        val r = Reglages(
+            plagesCours = listOf(
+                Plage(LocalTime.of(18, 0), LocalTime.of(20, 0)),
+                Plage(LocalTime.of(19, 0), LocalTime.of(21, 0)),
+            ),
+        )
+        val plan = Planificateur.semaine(LocalDate.of(2026, 11, 23), r, MatieresParDefaut.pour(Niveau.SIXIEME, null))
+        val lundi = plan.jours.first()
+        lundi.seances.zipWithNext().forEach { (a, b) -> assertFalse(b.debut.isBefore(a.fin), "$a / $b") }
+        assertTrue(Planificateur.chevauche(r.plagesCours[1], listOf(r.plagesCours[0])))
+        assertFalse(
+            Planificateur.chevauche(
+                Plage(LocalTime.of(20, 0), LocalTime.of(21, 0)),
+                listOf(Plage(LocalTime.of(18, 0), LocalTime.of(20, 0))),
+            ),
+        )
+    }
+
+    @Test
+    fun `le calcul hegirien est proche des dates connues`() {
+        for (annee in 2026..2028) {
+            val calculees = JoursFeries.fetesMusulmanesCalculees(annee).associateBy { it.nom }
+            val connues = JoursFeries.pour(annee).filter { it.estime }
+            assertEquals(4, connues.size)
+            for (f in connues) {
+                val c = calculees.getValue(f.nom)
+                val ecart = kotlin.math.abs(java.time.temporal.ChronoUnit.DAYS.between(f.date, c.date))
+                assertTrue(ecart <= 2, "${f.nom} $annee : ${f.date} vs ${c.date}")
+            }
+        }
+    }
+
+    @Test
+    fun `fetes musulmanes apres 2028`() {
+        for (annee in 2029..2040) {
+            val f = JoursFeries.pour(annee).filter { it.estime }.map { it.nom }.toSet()
+            assertTrue("Tabaski" in f && "Fête de fin du Ramadan" in f, "$annee : $f")
+        }
+    }
+}

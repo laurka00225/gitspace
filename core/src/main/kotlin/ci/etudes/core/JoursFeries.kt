@@ -27,7 +27,8 @@ object JoursFeries {
         liste += JourFerie(paques.plusDays(1), "Lundi de Pâques")
         liste += JourFerie(paques.plusDays(39), "Ascension")
         liste += JourFerie(paques.plusDays(50), "Lundi de Pentecôte")
-        liste += FETES_MUSULMANES.filter { it.date.year == annee }
+        val connues = FETES_MUSULMANES.filter { it.date.year == annee }
+        liste += connues.ifEmpty { fetesMusulmanesCalculees(annee) }
         return liste.sortedBy { it.date }
     }
 
@@ -52,6 +53,34 @@ object JoursFeries {
         val mois = (h + l - 7 * m + 114) / 31
         val jour = ((h + l - 7 * m + 114) % 31) + 1
         return LocalDate.of(annee, mois, jour)
+    }
+
+    /**
+     * Estimation par le calendrier hégirien tabulaire, pour les années absentes de la table
+     * ci-dessous. L'écart avec la date officielle est en général d'un ou deux jours.
+     */
+    internal fun fetesMusulmanesCalculees(annee: Int): List<JourFerie> {
+        // Années hégiriennes qui peuvent tomber dans l'année grégorienne demandée.
+        val h0 = ((annee - 622) * 33) / 32
+        return (h0 - 1..h0 + 2).flatMap { h ->
+            listOf(
+                hegirienVersGregorien(h, 9, 27) to "Lendemain de la Nuit du Destin",
+                hegirienVersGregorien(h, 10, 1) to "Fête de fin du Ramadan",
+                hegirienVersGregorien(h, 12, 10) to "Tabaski",
+                hegirienVersGregorien(h, 3, 13) to "Lendemain du Maouloud",
+            )
+        }.filter { it.first.year == annee }
+            .map { (d, n) -> JourFerie(d, n, estime = true) }
+    }
+
+    /** Conversion du calendrier hégirien tabulaire (arithmétique) vers le grégorien. */
+    internal fun hegirienVersGregorien(annee: Int, mois: Int, jour: Int): LocalDate {
+        val jourJulien = jour +
+            Math.ceil(29.5 * (mois - 1)).toLong() +
+            (annee - 1) * 354L +
+            Math.floorDiv(3L + 11L * annee, 30L) +
+            1948439L
+        return LocalDate.ofEpochDay(jourJulien - 2440588L)
     }
 
     /**

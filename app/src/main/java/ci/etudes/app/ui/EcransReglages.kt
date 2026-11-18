@@ -53,6 +53,7 @@ import ci.etudes.core.JourLibrePerso
 import ci.etudes.core.JoursFeries
 import ci.etudes.core.Matiere
 import ci.etudes.core.Plage
+import ci.etudes.core.Planificateur
 import ci.etudes.core.Reglages
 import ci.etudes.core.TypeJour
 import java.time.LocalDate
@@ -319,6 +320,7 @@ private fun EditeurPlages(etat: EtatApp, type: TypeJour, titre: String) {
 
     /** Demande l'heure de début puis l'heure de fin, puis appelle [ok]. */
     fun choisirPlage(initiale: Plage?, ok: (Plage) -> Unit) {
+        val autres = plages.filter { it != initiale }
         val d0 = initiale?.debut ?: min
         TimePickerDialog(context, { _, hd, md ->
             val debut = LocalTime.of(hd, md)
@@ -334,6 +336,8 @@ private fun EditeurPlages(etat: EtatApp, type: TypeJour, titre: String) {
                             "Pour ce jour, choisis entre ${min.enHeure()} et ${max.enHeure()}.",
                             Toast.LENGTH_LONG,
                         ).show()
+                    Planificateur.chevauche(Plage(debut, fin), autres) ->
+                        Toast.makeText(context, "Cette plage recouvre une autre plage.", Toast.LENGTH_LONG).show()
                     else -> ok(Plage(debut, fin))
                 }
             }, f0.hour, f0.minute, true).apply { setTitle("Fin de la plage") }.show()

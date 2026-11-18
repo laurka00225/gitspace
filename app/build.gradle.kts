@@ -16,11 +16,22 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        // Clé fixe, conservée dans le dépôt : chaque nouvel APK a la même signature,
+        // donc il s'installe par-dessus l'ancien sans perdre les données de l'élève.
+        // Pour une publication sur le Play Store, remplacer par une clé gardée secrète.
+        create("release") {
+            storeFile = file("mesetudes.jks")
+            storePassword = "mesetudes"
+            keyAlias = "mesetudes"
+            keyPassword = "mesetudes"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Signée avec la clé de debug pour pouvoir être installée directement.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
