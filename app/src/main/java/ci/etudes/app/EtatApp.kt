@@ -3,6 +3,7 @@ package ci.etudes.app
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import ci.etudes.core.Evaluation
 import ci.etudes.core.JourPlan
 import ci.etudes.core.Matiere
 import ci.etudes.core.MatieresParDefaut
@@ -14,7 +15,11 @@ import ci.etudes.core.Serie
 import java.time.LocalDate
 
 /** État de l'application, observé par l'interface et sauvegardé à chaque changement. */
-class EtatApp(private val stockage: Stockage) {
+class EtatApp(
+    private val stockage: Stockage,
+    /** Appelé après chaque changement qui touche le planning (pour reprogrammer les rappels). */
+    private val surChangementPlanning: () -> Unit = {},
+) {
 
     var configure by mutableStateOf(stockage.estConfigure)
         private set
@@ -33,9 +38,55 @@ class EtatApp(private val stockage: Stockage) {
     var changements by mutableStateOf(stockage.lireChangements())
         private set
 
+    var evaluations by mutableStateOf(stockage.lireEvaluations())
+        private set
+    var rappels by mutableStateOf(stockage.lireRappels())
+        private set
+
+    /** Meilleur score sur 10 par matière d'exercices. */
+    var scores by mutableStateOf(stockage.lireScores())
+        private set
+    var seriesExercices by mutableStateOf(stockage.seriesExercices)
+        private set
+    var couleursTelephone by mutableStateOf(stockage.couleursTelephone)
+        private set
+
     private fun sauver() {
         stockage.enregistrer(reglages, matieres, faites, changements)
         configure = true
+        surChangementPlanning()
+    }
+
+    fun ajouterEvaluation(e: Evaluation) {
+        evaluations = (evaluations + e).sortedBy { it.date }
+        stockage.enregistrerEvaluations(evaluations)
+        surChangementPlanning()
+    }
+
+    fun supprimerEvaluation(e: Evaluation) {
+        evaluations = evaluations.filterNot { it.id == e.id }
+        stockage.enregistrerEvaluations(evaluations)
+        surChangementPlanning()
+    }
+
+    fun modifierRappels(r: ReglagesRappels) {
+        rappels = r
+        stockage.enregistrerRappels(r)
+        surChangementPlanning()
+    }
+
+    fun enregistrerScore(matiereId: String, score: Int) {
+        if (score > (scores[matiereId] ?: -1)) {
+            scores = scores + (matiereId to score)
+            stockage.enregistrerScores(scores)
+        }
+        seriesExercices += 1
+        stockage.seriesExercices = seriesExercices
+    }
+
+    fun changerCouleursTelephone(actif: Boolean) {
+        couleursTelephone = actif
+        stockage.couleursTelephone = actif
     }
 
     fun demarrer(niveau: Niveau, serie: Serie?) {
@@ -97,11 +148,17 @@ class EtatApp(private val stockage: Stockage) {
         matieres = MatieresParDefaut.pour(reglages.niveau, reglages.serie)
         faites = emptySet()
         changements = emptyMap()
+        evaluations = emptyList()
+        rappels = ReglagesRappels()
+        scores = emptyMap()
+        seriesExercices = 0
+        couleursTelephone = false
         configure = false
+        surChangementPlanning()
     }
 
     fun plan(lundi: LocalDate): PlanSemaine {
-        val brut = Planificateur.semaine(lundi, reglages, matieres)
+        val brut = Planificateur.semaine(lundi, reglages, matieres, evaluations)
         val parId = matieres.associateBy { it.id }
         return brut.copy(
             jours = brut.jours.map { jour ->

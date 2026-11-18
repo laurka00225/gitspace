@@ -1,7 +1,16 @@
 package ci.etudes.app.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import android.os.Build
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
+import androidx.compose.material3.Typography
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -27,8 +36,12 @@ private val Clair = lightColorScheme(
     onSecondary = Color.White,
     secondaryContainer = Color(0xFFC8F0D6),
     onSecondaryContainer = Color(0xFF00290F),
+    tertiary = Color(0xFF1E6FD9),
     background = Color(0xFFFFFBF7),
     surface = Color(0xFFFFFBF7),
+    surfaceVariant = Color(0xFFF6EDE4),
+    surfaceContainer = Color(0xFFF8F0E8),
+    surfaceContainerHigh = Color(0xFFF3E9DF),
 )
 
 private val Sombre = darkColorScheme(
@@ -43,9 +56,31 @@ private val Sombre = darkColorScheme(
 )
 
 @Composable
-fun ThemeEtudes(contenu: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (isSystemInDarkTheme()) Sombre else Clair, content = contenu)
+fun ThemeEtudes(couleursTelephone: Boolean = false, contenu: @Composable () -> Unit) {
+    val sombre = isSystemInDarkTheme()
+    val context = LocalContext.current
+    val schema = when {
+        couleursTelephone && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+            if (sombre) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        sombre -> Sombre
+        else -> Clair
+    }
+    MaterialTheme(colorScheme = schema, typography = Typographie, shapes = Formes, content = contenu)
 }
+
+private val Typographie = Typography().let { t ->
+    t.copy(
+        headlineLarge = t.headlineLarge.copy(fontWeight = FontWeight.Bold),
+        headlineMedium = t.headlineMedium.copy(fontWeight = FontWeight.Bold),
+        titleLarge = t.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+    )
+}
+
+private val Formes = Shapes(
+    small = RoundedCornerShape(10.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(24.dp),
+)
 
 private val Palette = listOf(
     Color(0xFFE53935), Color(0xFF1E88E5), Color(0xFF43A047), Color(0xFFFB8C00),

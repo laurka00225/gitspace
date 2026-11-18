@@ -132,3 +132,20 @@ data class PlanSemaine(val lundi: LocalDate, val jours: List<JourPlan>) {
             .groupBy { it.matiere }
             .mapValues { (_, s) -> s.sumOf { java.time.Duration.between(it.debut, it.fin).toMinutes() } }
 }
+
+enum class TypeEvaluation(val libelle: String) {
+    INTERROGATION("Interrogation"),
+    DEVOIR("Devoir"),
+    COMPOSITION("Composition"),
+    EXAMEN_BLANC("Examen blanc"),
+    EXPOSE("Exposé"),
+}
+
+/** Un devoir ou un contrôle à venir, noté par l'élève. */
+data class Evaluation(
+    val id: String,
+    val matiereId: String,
+    val date: LocalDate,
+    val type: TypeEvaluation,
+    val note: String = "",
+)

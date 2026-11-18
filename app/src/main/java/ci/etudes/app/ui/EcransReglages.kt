@@ -2,7 +2,14 @@
 
 package ci.etudes.app.ui
 
+import android.Manifest
 import android.app.DatePickerDialog
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.app.TimePickerDialog
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -49,6 +56,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import ci.etudes.app.EtatApp
+import ci.etudes.app.Rappels
 import ci.etudes.core.JourLibrePerso
 import ci.etudes.core.JoursFeries
 import ci.etudes.core.Matiere
@@ -57,6 +65,7 @@ import ci.etudes.core.Planificateur
 import ci.etudes.core.Reglages
 import ci.etudes.core.TypeJour
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 
 // ---------------------------------------------------------------- Matières
@@ -168,7 +177,7 @@ private fun Reglages.avecPlages(type: TypeJour, plages: List<Plage>): Reglages {
 }
 
 @Composable
-fun EcranReglages(etat: EtatApp, modifier: Modifier) {
+fun EcranReglages(etat: EtatApp, nav: Navigation, modifier: Modifier) {
     val r = etat.reglages
     var confirmerRaz by remember { mutableStateOf(false) }
     var ajoutJourLibre by remember { mutableStateOf(false) }
@@ -181,6 +190,33 @@ fun EcranReglages(etat: EtatApp, modifier: Modifier) {
         item { Section("Ma classe") }
         item {
             ChoixClasse(r.niveau, r.serie, onChange = { n, s -> etat.changerClasse(n, s) })
+        }
+
+        item {
+            OutlinedButton(onClick = nav.ouvrirMatieres, modifier = Modifier.fillMaxWidth()) {
+                Text("Mes matières et leurs priorités (${etat.matieres.count { it.active }} actives)")
+            }
+        }
+
+        item { Section("Rappels et alarmes") }
+        item { ReglagesDesRappels(etat) }
+
+        item { Section("Apparence") }
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Couleurs du téléphone")
+                    Text(
+                        "Utilise les couleurs de ton fond d'écran (Android 12 et plus).",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(
+                    checked = etat.couleursTelephone,
+                    onCheckedChange = { etat.changerCouleursTelephone(it) },
+                    enabled = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S,
+                )
+            }
         }
 
         item { Section("Séances") }
@@ -414,4 +450,89 @@ private fun DialogueJourLibre(onFermer: () -> Unit, onAjouter: (JourLibrePerso) 
         },
         dismissButton = { TextButton(onClick = onFermer) { Text("Annuler") } },
     )
+}
+
+@Composable
+private fun ReglagesDesRappels(etat: EtatApp) {
+    val context = LocalContext.current
+    val r = etat.rappels
+    var peutNotifier by remember { mutableStateOf(Rappels.peutNotifier(context)) }
+    val demande = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        peutNotifier = ok
+        Rappels.planifierProchain(context)
+    }
+    val prochain = remember(r, etat.reglages, etat.evaluations, etat.changements) {
+        Rappels.aVenir(context, LocalDateTime.now(), limite = 1).firstOrNull()
+    }
+
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            LigneInterrupteur("Rappel avant chaque séance", r.actif) {
+                etat.modifierRappels(r.copy(actif = it))
+                if (it && !peutNotifier && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    demande.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
+            if (r.actif) {
+                Text("Prévenir", style = MaterialTheme.typography.labelLarge)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(0, 5, 10, 15, 30).forEach { m ->
+                        FilterChip(
+                            selected = r.minutesAvant == m,
+                            onClick = { etat.modifierRappels(r.copy(minutesAvant = m)) },
+                            label = { Text(if (m == 0) "À l'heure" else "$m min avant") },
+                        )
+                    }
+                }
+                LigneInterrupteur("Sonnerie d'alarme (plus forte)", r.alarme) { etat.modifierRappels(r.copy(alarme = it)) }
+                LigneInterrupteur("Rappel du coucher à 21h50", r.coucher) { etat.modifierRappels(r.copy(coucher = it)) }
+                LigneInterrupteur("La veille d'un devoir, à 19h", r.veilleDevoirs) { etat.modifierRappels(r.copy(veilleDevoirs = it)) }
+                prochain?.let {
+                    Text(
+                        "Prochain rappel : ${it.quand.toLocalDate().enLong()} à ${it.quand.toLocalTime().enHeure()} · ${it.titre}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                }
+            }
+            if (r.actif && !peutNotifier) {
+                Text(
+                    "Les notifications sont bloquées : autorise-les pour recevoir les rappels.",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                TextButton(onClick = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        demande.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                        )
+                    }
+                }) { Text("Autoriser les notifications") }
+            }
+            if (r.actif && !Rappels.peutAlarmePrecise(context) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                Text(
+                    "Les rappels peuvent arriver avec quelques minutes de retard.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                TextButton(onClick = {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + context.packageName)),
+                        )
+                    }
+                }) { Text("Autoriser les alarmes à l'heure exacte") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LigneInterrupteur(texte: String, actif: Boolean, onChange: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(texte, Modifier.weight(1f))
+        Switch(checked = actif, onCheckedChange = onChange)
+    }
 }

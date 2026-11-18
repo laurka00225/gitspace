@@ -75,10 +75,26 @@ object Planificateur {
     fun chevauche(plage: Plage, autres: List<Plage>): Boolean =
         autres.any { plage.debut.isBefore(it.fin) && it.debut.isBefore(plage.fin) }
 
-    fun semaine(lundi: LocalDate, reglages: Reglages, matieres: List<Matiere>): PlanSemaine {
+    /** Nombre de jours avant une évaluation pendant lesquels sa matière est renforcée. */
+    const val JOURS_PREPARATION = 7L
+
+    /** Priorité ajoutée à une matière dont une évaluation approche. */
+    private const val BONUS_EVALUATION = 3
+
+    /** Prochaine évaluation de la matière dans les [JOURS_PREPARATION] jours qui suivent [date]. */
+    fun evaluationProche(date: LocalDate, matiereId: String, evaluations: List<Evaluation>): Evaluation? =
+        evaluations
+            .filter { it.matiereId == matiereId && it.date.isAfter(date) && !it.date.isAfter(date.plusDays(JOURS_PREPARATION)) }
+            .minByOrNull { it.date }
+
+    fun semaine(
+        lundi: LocalDate,
+        reglages: Reglages,
+        matieres: List<Matiere>,
+        evaluations: List<Evaluation> = emptyList(),
+    ): PlanSemaine {
         val actives = matieres.filter { it.active && it.priorite > 0 }
         val credits = DoubleArray(actives.size)
-        val poidsTotal = actives.sumOf { it.priorite }.toDouble()
 
         val jours = (0L until 7L).map { offset ->
             val date = lundi.plusDays(offset)
@@ -91,19 +107,29 @@ object Planificateur {
             val seances = mutableListOf<Seance>()
             val compteJour = IntArray(actives.size)
             var precedente = -1
+            val prochaines = actives.map { evaluationProche(date, it.id, evaluations) }
+            val poids = actives.mapIndexed { i, m ->
+                (m.priorite + if (prochaines[i] != null) BONUS_EVALUATION else 0).toDouble()
+            }
+            val poidsTotal = poids.sum()
             creneaux.forEachIndexed { index, (debut, fin) ->
                 if (actives.isEmpty()) return@forEachIndexed
-                for (i in actives.indices) credits[i] += actives[i].priorite.toDouble()
+                for (i in actives.indices) credits[i] += poids[i]
                 val choix = choisir(actives, credits, compteJour, precedente, creneaux.size)
                 credits[choix] -= poidsTotal
                 compteJour[choix]++
                 precedente = choix
+                val evaluation = prochaines[choix]
                 seances += Seance(
                     date = date,
                     debut = debut,
                     fin = fin,
                     matiere = actives[choix],
-                    activite = activite(type, index, reglages.niveau),
+                    activite = if (evaluation != null) {
+                        "Préparer : ${evaluation.type.libelle.lowercase()} du ${evaluation.date.dayOfMonth}/${evaluation.date.monthValue}"
+                    } else {
+                        activite(type, index, reglages.niveau)
+                    },
                 )
             }
             JourPlan(date, type, evenement, seances)

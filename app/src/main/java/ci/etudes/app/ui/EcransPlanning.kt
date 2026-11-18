@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package ci.etudes.app.ui
 
 import androidx.compose.foundation.background
@@ -6,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,10 +46,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ci.etudes.app.EtatApp
 import ci.etudes.core.JourPlan
+import ci.etudes.core.MatiereExercice
+import ci.etudes.core.Progres
 import ci.etudes.core.Planificateur
 import ci.etudes.core.Seance
 import ci.etudes.core.TypeJour
@@ -68,7 +74,7 @@ private fun maintenant(): LocalDateTime {
 }
 
 @Composable
-fun EcranAujourdhui(etat: EtatApp, modifier: Modifier) {
+fun EcranAujourdhui(etat: EtatApp, nav: Navigation, modifier: Modifier) {
     val now = maintenant()
     val aujourdhui = now.toLocalDate()
     val jour = etat.jour(aujourdhui)
@@ -99,6 +105,33 @@ fun EcranAujourdhui(etat: EtatApp, modifier: Modifier) {
                 }
             }
         }
+        item { CarteProgres(etat, aujourdhui) }
+        val proches = etat.evaluations.filter {
+            !it.date.isBefore(aujourdhui) && !it.date.isAfter(aujourdhui.plusDays(Planificateur.JOURS_PREPARATION))
+        }
+        if (proches.isNotEmpty()) {
+            item {
+                val noms = etat.matieres.associate { it.id to it.nom }
+                Card(
+                    onClick = nav.ouvrirDevoirs,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("À préparer", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        proches.forEach { e ->
+                            val jours = java.time.temporal.ChronoUnit.DAYS.between(aujourdhui, e.date)
+                            val quand = when (jours) {
+                                0L -> "aujourd'hui"
+                                1L -> "demain"
+                                else -> "dans $jours jours"
+                            }
+                            Text("• ${e.type.libelle} de ${noms[e.matiereId] ?: "?"} $quand")
+                        }
+                    }
+                }
+            }
+        }
         item {
             val message = when {
                 !heure.isBefore(Planificateur.HEURE_COUCHER) -> "Il est 22h passées : au lit ! Bonne nuit."
@@ -121,12 +154,19 @@ fun EcranAujourdhui(etat: EtatApp, modifier: Modifier) {
         }
         items(jour.seances, key = { it.cle }) { s ->
             val enCours = !heure.isBefore(s.debut) && heure.isBefore(s.fin)
+            val exo = MatiereExercice.deId(s.matiere.id)
             LigneSeance(
                 seance = s,
                 faite = s.cle in etat.faites,
                 enCours = enCours,
                 onCocher = { etat.basculerFaite(s.cle) },
                 onClic = { aChanger = s },
+                actions = {
+                    TextButton(onClick = { nav.ouvrirMinuteur(s) }) { Text("▶ Minuteur") }
+                    if (exo != null) {
+                        TextButton(onClick = { nav.ouvrirExercices(exo) }) { Text("✎ S'entraîner") }
+                    }
+                },
             )
         }
     }
@@ -134,7 +174,7 @@ fun EcranAujourdhui(etat: EtatApp, modifier: Modifier) {
 }
 
 @Composable
-fun EcranSemaine(etat: EtatApp, modifier: Modifier) {
+fun EcranSemaine(etat: EtatApp, @Suppress("UNUSED_PARAMETER") nav: Navigation, modifier: Modifier) {
     val aujourdhui = LocalDate.now()
     var lundi by remember { mutableStateOf(Planificateur.lundiDe(aujourdhui)) }
     val plan = etat.plan(lundi)
@@ -229,6 +269,7 @@ fun LigneSeance(
     enCours: Boolean,
     onCocher: () -> Unit,
     onClic: () -> Unit,
+    actions: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val couleur = couleurDe(seance.matiere)
     Card(
@@ -247,6 +288,7 @@ fun LigneSeance(
             Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
                 Text(
                     seance.matiere.nom,
+                    textDecoration = if (faite) TextDecoration.LineThrough else null,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
@@ -256,6 +298,9 @@ fun LigneSeance(
                     if (enCours) "En cours · ${seance.activite}" else seance.activite,
                     style = MaterialTheme.typography.bodySmall,
                 )
+                if (actions != null) {
+                    Row(Modifier.padding(top = 2.dp), content = actions)
+                }
             }
             Checkbox(checked = faite, onCheckedChange = { onCocher() })
         }
@@ -335,4 +380,42 @@ private fun DialogueChangerMatiere(etat: EtatApp, seance: Seance, onFermer: () -
             }
         },
     )
+}
+
+@Composable
+private fun CarteProgres(etat: EtatApp, aujourdhui: LocalDate) {
+    val serie = Progres.serieEnCours(etat.faites, aujourdhui)
+    val record = Progres.meilleureSerie(etat.faites)
+    val (faites, prevues) = Progres.tauxRealisation(etat.plan(Planificateur.lundiDe(aujourdhui)), etat.faites, aujourdhui)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Tuile(
+            Modifier.weight(1f),
+            valeur = "🔥 $serie",
+            libelle = if (serie > 1) "jours d'affilée" else "jour d'affilée",
+            detail = "Record : $record",
+        )
+        Tuile(
+            Modifier.weight(1f),
+            valeur = if (prevues == 0) "—" else "${faites * 100 / prevues} %",
+            libelle = "de la semaine",
+            detail = "$faites / $prevues séances",
+        )
+        Tuile(
+            Modifier.weight(1f),
+            valeur = "⭐ ${etat.seriesExercices}",
+            libelle = "exercices",
+            detail = "séries faites",
+        )
+    }
+}
+
+@Composable
+private fun Tuile(modifier: Modifier, valeur: String, libelle: String, detail: String) {
+    Card(modifier) {
+        Column(Modifier.padding(12.dp)) {
+            Text(valeur, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(libelle, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+            Text(detail, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+    }
 }
