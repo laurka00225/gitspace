@@ -106,6 +106,23 @@ fun EcranAujourdhui(etat: EtatApp, nav: Navigation, modifier: Modifier) {
             }
         }
         item { CarteProgres(etat, aujourdhui) }
+        if (etat.reglages.emploiScolaire.isEmpty()) {
+            item {
+                Card(
+                    onClick = nav.ouvrirEmploi,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("📷 Importe ton emploi du temps", fontWeight = FontWeight.Bold)
+                        Text(
+                            "Photo ou PDF : ton planning d'études suivra tes vrais horaires de cours.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+            }
+        }
         val proches = etat.evaluations.filter {
             !it.date.isBefore(aujourdhui) && !it.date.isAfter(aujourdhui.plusDays(Planificateur.JOURS_PREPARATION))
         }

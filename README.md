@@ -26,6 +26,10 @@ Toutes les plages se modifient dans **Réglages** (repas, trajet, sieste...).
   fêtes musulmanes estimées et désactivables). Ajout des vacances scolaires.
 - Écran « Aujourd'hui » avec la séance en cours, cases « faite » et progression.
 - Vue semaine avec bilan du temps par matière ; on peut changer la matière d'une séance.
+- **Import de l'emploi du temps de l'école** (PDF, image JPEG/PNG ou photo) : lecture du texte
+  sur le téléphone (ML Kit, hors ligne), reconstitution du tableau jours × heures × matières,
+  écran de vérification et de correction. Les études commencent après le dernier cours (plus le
+  trajet) ; les matières vues dans la journée sont relues le soir et celles du lendemain préparées.
 - **Rappels et alarmes** : notification avant chaque séance (à l'heure, 5, 10, 15 ou 30 min avant),
   sonnerie d'alarme au choix, rappel du coucher à 21h50 et rappel la veille des devoirs à 19h.
   Les rappels survivent au redémarrage du téléphone.

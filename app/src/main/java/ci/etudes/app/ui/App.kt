@@ -69,6 +69,7 @@ class Navigation(
     val ouvrirExercices: (MatiereExercice) -> Unit,
     val ouvrirMinuteur: (Seance) -> Unit,
     val ouvrirMatieres: () -> Unit,
+    val ouvrirEmploi: () -> Unit,
     val ouvrirDevoirs: () -> Unit,
 )
 
@@ -81,6 +82,7 @@ fun App(etat: EtatApp) {
     val context = LocalContext.current
     var onglet by rememberSaveable { mutableStateOf(Onglet.AUJOURDHUI) }
     var matieresOuvertes by rememberSaveable { mutableStateOf(false) }
+    var emploiOuvert by rememberSaveable { mutableStateOf(false) }
     var quizMatiere by remember { mutableStateOf<MatiereExercice?>(null) }
     var minuteur by remember { mutableStateOf<Seance?>(null) }
 
@@ -98,11 +100,13 @@ fun App(etat: EtatApp) {
         ouvrirExercices = { m -> quizMatiere = m; onglet = Onglet.EXERCICES },
         ouvrirMinuteur = { s -> minuteur = s },
         ouvrirMatieres = { matieresOuvertes = true },
+        ouvrirEmploi = { emploiOuvert = true },
         ouvrirDevoirs = { onglet = Onglet.DEVOIRS },
     )
 
-    BackHandler(enabled = matieresOuvertes || quizMatiere != null || onglet != Onglet.AUJOURDHUI) {
+    BackHandler(enabled = emploiOuvert || matieresOuvertes || quizMatiere != null || onglet != Onglet.AUJOURDHUI) {
         when {
+            emploiOuvert -> emploiOuvert = false
             matieresOuvertes -> matieresOuvertes = false
             quizMatiere != null -> quizMatiere = null
             else -> onglet = Onglet.AUJOURDHUI
@@ -110,6 +114,7 @@ fun App(etat: EtatApp) {
     }
 
     val titre = when {
+        emploiOuvert -> "Emploi du temps de l'école"
         matieresOuvertes -> "Mes matières"
         quizMatiere != null -> quizMatiere!!.nom
         else -> onglet.titre
@@ -119,8 +124,14 @@ fun App(etat: EtatApp) {
             TopAppBar(
                 title = { Text(titre, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    if (matieresOuvertes || quizMatiere != null) {
-                        IconButton(onClick = { if (matieresOuvertes) matieresOuvertes = false else quizMatiere = null }) {
+                    if (emploiOuvert || matieresOuvertes || quizMatiere != null) {
+                        IconButton(onClick = {
+                            when {
+                                emploiOuvert -> emploiOuvert = false
+                                matieresOuvertes -> matieresOuvertes = false
+                                else -> quizMatiere = null
+                            }
+                        }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
                         }
                     }
@@ -136,10 +147,11 @@ fun App(etat: EtatApp) {
             NavigationBar {
                 Onglet.entries.forEach { o ->
                     NavigationBarItem(
-                        selected = o == onglet && !matieresOuvertes,
+                        selected = o == onglet && !matieresOuvertes && !emploiOuvert,
                         onClick = {
                             onglet = o
                             matieresOuvertes = false
+                            emploiOuvert = false
                             if (o != Onglet.EXERCICES) quizMatiere = null
                         },
                         icon = { Icon(o.icone, contentDescription = null) },
@@ -151,6 +163,7 @@ fun App(etat: EtatApp) {
     ) { marges ->
         val modifier = Modifier.padding(marges).fillMaxSize()
         when {
+            emploiOuvert -> EcranEmploiScolaire(etat, onTerminer = { emploiOuvert = false; onglet = Onglet.SEMAINE }, modifier = modifier)
             matieresOuvertes -> EcranMatieres(etat, modifier)
             else -> when (onglet) {
                 Onglet.AUJOURDHUI -> EcranAujourdhui(etat, nav, modifier)

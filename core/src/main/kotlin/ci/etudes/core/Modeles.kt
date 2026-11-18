@@ -80,7 +80,15 @@ data class Reglages(
     val joursLibresPerso: List<JourLibrePerso> = emptyList(),
     /** Jours fériés officiels que l'élève a désactivés (clé = date ISO). */
     val feriesIgnores: Set<String> = emptySet(),
+    /** Emploi du temps de l'école, importé ou saisi (facultatif). */
+    val emploiScolaire: List<CoursScolaire> = emptyList(),
+    /** Si vrai, les heures libres et les matières du jour viennent de [emploiScolaire]. */
+    val utiliserEmploiScolaire: Boolean = false,
+    /** Temps de trajet entre l'école et la maison. */
+    val trajetMin: Int = 30,
 ) {
+    val emploiActif: Boolean get() = utiliserEmploiScolaire && emploiScolaire.isNotEmpty()
+
     fun plages(type: TypeJour): List<Plage> = when (type) {
         TypeJour.COURS -> plagesCours
         TypeJour.MERCREDI -> plagesMercredi

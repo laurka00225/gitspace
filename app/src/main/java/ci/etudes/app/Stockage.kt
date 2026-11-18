@@ -1,6 +1,7 @@
 package ci.etudes.app
 
 import android.content.Context
+import ci.etudes.core.CoursScolaire
 import ci.etudes.core.Evaluation
 import ci.etudes.core.JourLibrePerso
 import ci.etudes.core.Matiere
@@ -11,6 +12,7 @@ import ci.etudes.core.Serie
 import ci.etudes.core.TypeEvaluation
 import org.json.JSONArray
 import org.json.JSONObject
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 
@@ -207,6 +209,23 @@ class Stockage(context: Context) {
         .put("mercredi", plagesVers(r.plagesMercredi))
         .put("libre", plagesVers(r.plagesLibre))
         .put("feriesIgnores", JSONArray(r.feriesIgnores.toList()))
+        .put("utiliserEmploi", r.utiliserEmploiScolaire)
+        .put("trajet", r.trajetMin)
+        .put(
+            "emploi",
+            JSONArray().apply {
+                r.emploiScolaire.forEach {
+                    put(
+                        JSONObject()
+                            .put("jour", it.jour.name)
+                            .put("debut", it.debut.toString())
+                            .put("fin", it.fin.toString())
+                            .put("matiere", it.matiereId ?: "")
+                            .put("libelle", it.libelle),
+                    )
+                }
+            },
+        )
         .put(
             "joursLibres",
             JSONArray().apply {
@@ -227,6 +246,7 @@ class Stockage(context: Context) {
         val serie = o.optString("serie", "")
         val feries = o.optJSONArray("feriesIgnores")
         val libres = o.optJSONArray("joursLibres")
+        val emploi = o.optJSONArray("emploi")
         return Reglages(
             niveau = runCatching { Niveau.valueOf(o.getString("niveau")) }.getOrDefault(defaut.niveau),
             serie = if (serie.isEmpty()) null else runCatching { Serie.valueOf(serie) }.getOrNull(),
@@ -235,6 +255,20 @@ class Stockage(context: Context) {
             plagesCours = plagesDepuis(o.optJSONArray("cours"), defaut.plagesCours),
             plagesMercredi = plagesDepuis(o.optJSONArray("mercredi"), defaut.plagesMercredi),
             plagesLibre = plagesDepuis(o.optJSONArray("libre"), defaut.plagesLibre),
+            utiliserEmploiScolaire = o.optBoolean("utiliserEmploi", false),
+            trajetMin = o.optInt("trajet", defaut.trajetMin),
+            emploiScolaire = if (emploi == null) emptyList() else (0 until emploi.length()).mapNotNull { i ->
+                val c = emploi.getJSONObject(i)
+                runCatching {
+                    CoursScolaire(
+                        jour = DayOfWeek.valueOf(c.getString("jour")),
+                        debut = LocalTime.parse(c.getString("debut")),
+                        fin = LocalTime.parse(c.getString("fin")),
+                        matiereId = c.optString("matiere", "").ifEmpty { null },
+                        libelle = c.getString("libelle"),
+                    )
+                }.getOrNull()
+            },
             feriesIgnores = if (feries == null) emptySet() else (0 until feries.length()).map { feries.getString(it) }.toSet(),
             joursLibresPerso = if (libres == null) emptyList() else (0 until libres.length()).mapNotNull { i ->
                 val j = libres.getJSONObject(i)

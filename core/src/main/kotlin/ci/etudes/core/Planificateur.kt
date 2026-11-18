@@ -81,6 +81,9 @@ object Planificateur {
     /** Priorité ajoutée à une matière dont une évaluation approche. */
     private const val BONUS_EVALUATION = 3
 
+    /** Priorité ajoutée à une matière vue en classe le jour même ou le lendemain. */
+    private const val BONUS_COURS = 2
+
     /** Prochaine évaluation de la matière dans les [JOURS_PREPARATION] jours qui suivent [date]. */
     fun evaluationProche(date: LocalDate, matiereId: String, evaluations: List<Evaluation>): Evaluation? =
         evaluations
@@ -99,7 +102,26 @@ object Planificateur {
         val jours = (0L until 7L).map { offset ->
             val date = lundi.plusDays(offset)
             val (type, evenement) = typeDe(date, reglages)
-            val creneaux = reglages.plages(type)
+            // Cours de l'école ce jour-là et le lendemain (sauf jour férié ou congé).
+            val coursDuJour = if (reglages.emploiActif && evenement == null) {
+                EmploiScolaire.coursDu(date.dayOfWeek, reglages.emploiScolaire)
+            } else {
+                emptyList()
+            }
+            val demain = date.plusDays(1)
+            val coursDeDemain = if (reglages.emploiActif && typeDe(demain, reglages).second == null) {
+                EmploiScolaire.coursDu(demain.dayOfWeek, reglages.emploiScolaire)
+            } else {
+                emptyList()
+            }
+            val matieresDuJour = coursDuJour.mapNotNull { it.matiereId }.toSet()
+            val matieresDeDemain = coursDeDemain.mapNotNull { it.matiereId }.toSet()
+            val plagesDuJour = if (coursDuJour.isNotEmpty()) {
+                EmploiScolaire.plagesLibres(coursDuJour, reglages.trajetMin)
+            } else {
+                reglages.plages(type)
+            }
+            val creneaux = plagesDuJour
                 .sortedBy { it.debut }
                 .flatMap { creneaux(it, reglages.dureeSeanceMin, reglages.pauseMin) }
                 .let(::sansChevauchement)
@@ -109,7 +131,12 @@ object Planificateur {
             var precedente = -1
             val prochaines = actives.map { evaluationProche(date, it.id, evaluations) }
             val poids = actives.mapIndexed { i, m ->
-                (m.priorite + if (prochaines[i] != null) BONUS_EVALUATION else 0).toDouble()
+                (
+                    m.priorite +
+                        (if (prochaines[i] != null) BONUS_EVALUATION else 0) +
+                        (if (m.id in matieresDuJour) BONUS_COURS else 0) +
+                        (if (m.id in matieresDeDemain) BONUS_COURS else 0)
+                    ).toDouble()
             }
             val poidsTotal = poids.sum()
             creneaux.forEachIndexed { index, (debut, fin) ->
@@ -125,10 +152,12 @@ object Planificateur {
                     debut = debut,
                     fin = fin,
                     matiere = actives[choix],
-                    activite = if (evaluation != null) {
-                        "Préparer : ${evaluation.type.libelle.lowercase()} du ${evaluation.date.dayOfMonth}/${evaluation.date.monthValue}"
-                    } else {
-                        activite(type, index, reglages.niveau)
+                    activite = when {
+                        evaluation != null ->
+                            "Préparer : ${evaluation.type.libelle.lowercase()} du ${evaluation.date.dayOfMonth}/${evaluation.date.monthValue}"
+                        actives[choix].id in matieresDuJour -> "Relire le cours du jour et faire les exercices"
+                        actives[choix].id in matieresDeDemain -> "Préparer le cours de demain"
+                        else -> activite(type, index, reglages.niveau)
                     },
                 )
             }

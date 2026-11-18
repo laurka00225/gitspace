@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -195,6 +196,15 @@ fun EcranReglages(etat: EtatApp, nav: Navigation, modifier: Modifier) {
         item {
             OutlinedButton(onClick = nav.ouvrirMatieres, modifier = Modifier.fillMaxWidth()) {
                 Text("Mes matières et leurs priorités (${etat.matieres.count { it.active }} actives)")
+            }
+        }
+
+        item {
+            FilledTonalButton(onClick = nav.ouvrirEmploi, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    if (r.emploiScolaire.isEmpty()) "Importer l'emploi du temps de l'école (PDF, photo)"
+                    else "Emploi du temps de l'école (${r.emploiScolaire.size} cours${if (r.utiliserEmploiScolaire) ", utilisé" else ""})",
+                )
             }
         }
 
