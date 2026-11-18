@@ -31,7 +31,7 @@ Toutes les plages se modifient dans **Réglages** (repas, trajet, sieste...).
 ## Installer l'application
 
 Chaque envoi de code construit l'APK dans GitHub Actions (onglet **Actions**,
-artefact `MesEtudes-apk`). Sur la branche `main`, l'APK est aussi publié dans la
+artefact `MesEtudes-apk`). Sur la branche `master`, l'APK est aussi publié dans la
 release **derniere-version**. Sur le téléphone : télécharger `MesEtudes.apk`, l'ouvrir
 et autoriser l'installation depuis cette source.
 
