@@ -1,0 +1,50 @@
+name: Construire l'APK Android
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Tests de la planification
+        run: ./gradlew :core:test --console=plain
+
+      - name: Construire l'APK
+        run: ./gradlew :app:assembleRelease --console=plain
+
+      - name: Renommer l'APK
+        run: cp app/build/outputs/apk/release/app-release.apk MesEtudes.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MesEtudes-apk
+          path: MesEtudes.apk
+
+      - name: Publier la version téléchargeable
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/claude/project-thread-iufwdb')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: derniere-version
+          name: Mes Études (dernière version)
+          prerelease: false
+          make_latest: true
+          target_commitish: ${{ github.sha }}
+          files: MesEtudes.apk
+          body: |
+            APK Android de l'application Mes Études, construit automatiquement à chaque mise à jour.
+            Téléchargez MesEtudes.apk sur le téléphone, puis ouvrez-le pour l'installer.
